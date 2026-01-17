@@ -23,7 +23,7 @@ $registration = new Registration();
     <title>Create Account</title>
 
     <!-- CSS GLOBAL -->
-    <link rel="stylesheet" href="css.css"> <!-- fichier css à la racine -->
+    <link rel="stylesheet" href="css.css">
 </head>
 <body>
 

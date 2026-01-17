@@ -1,20 +1,14 @@
 <?php
 
 session_start(); 
-
-// Initialisation du compteur
 if (!isset($_SESSION['failed_attempts'])) {
     $_SESSION['failed_attempts'] = 0;
 }
-
-// Vérification du verrouillage
 if ($_SESSION['failed_attempts'] >= 3) {
     $account_locked = true;
 } else {
     $account_locked = false;
 }
-
-// checking for minimum PHP version
 if (version_compare(PHP_VERSION, '5.3.7', '<')) {
     exit("Sorry, Simple PHP Login does not run on a PHP version smaller than 5.3.7 !");
 } else if (version_compare(PHP_VERSION, '5.5.0', '<')) {
