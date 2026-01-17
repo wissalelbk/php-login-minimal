@@ -1,127 +1,126 @@
 <?php
 
-/**
- * Class login
- * handles the user's login and logout process
- */
 class Login
 {
-    /**
-     * @var object The database connection
-     */
     private $db_connection = null;
-    /**
-     * @var array Collection of error messages
-     */
     public $errors = array();
-    /**
-     * @var array Collection of success / neutral messages
-     */
     public $messages = array();
 
-    /**
-     * the function "__construct()" automatically starts whenever an object of this class is created,
-     * you know, when you do "$login = new Login();"
-     */
+    private $max_attempts = 3;  
+    private $lock_time = 120;   
+
     public function __construct()
     {
-        // create/read session, absolutely necessary
-        session_start();
+        if (session_status() == PHP_SESSION_NONE) {
+            session_start();
+        }
 
-        // check the possible login actions:
-        // if user tried to log out (happen when user clicks logout button)
+        // Initialisation compteur brute force
+        $_SESSION['login_attempts'] = $_SESSION['login_attempts'] ?? 0;
+        $_SESSION['lock_until']     = $_SESSION['lock_until'] ?? 0;
+
         if (isset($_GET["logout"])) {
             $this->doLogout();
-        }
-        // login via post data (if user just submitted a login form)
-        elseif (isset($_POST["login"])) {
-            $this->dologinWithPostData();
+        } elseif (isset($_POST["login"])) {
+            $this->doLoginWithPostData();
         }
     }
 
-    /**
-     * log in with post data
-     */
-    private function dologinWithPostData()
+    private function doLoginWithPostData()
     {
-        // check login form contents
-        if (empty($_POST['user_name'])) {
-            $this->errors[] = "Username field was empty.";
-        } elseif (empty($_POST['user_password'])) {
-            $this->errors[] = "Password field was empty.";
-        } elseif (!empty($_POST['user_name']) && !empty($_POST['user_password'])) {
+        // Vérifier lockout
+        if (time() < $_SESSION['lock_until']) {
+            $remaining = $_SESSION['lock_until'] - time();
+            $this->errors[] =
+                "Too many failed login attempts. Your account is temporarily locked. " .
+                "Please wait $remaining seconds before trying again.";
+            return;
+        }
 
-            // create a database connection, using the constants from config/db.php (which we loaded in index.php)
-            $this->db_connection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+        // Vérifier si username/password remplis
+        if (empty($_POST['user_name']) || empty($_POST['user_password'])) {
+            $this->errors[] = "Username or password is empty.";
+            return;
+        }
 
-            // change character set to utf8 and check it
-            if (!$this->db_connection->set_charset("utf8")) {
-                $this->errors[] = $this->db_connection->error;
-            }
+        // Vérification CAPTCHA (obligatoire)
+        $captcha_input = $_POST['captcha'] ?? '';
+        if ($captcha_input == '') {
+            $this->errors[] = "CAPTCHA_REQUIRED: Please solve the CAPTCHA.";
+            return;
+        }
 
-            // if no connection errors (= working database connection)
-            if (!$this->db_connection->connect_errno) {
+        if ((int)$captcha_input !== ($_SESSION['captcha_solution'] ?? -1)) {
+            $this->errors[] = "WRONG_CAPTCHA: CAPTCHA verification failed.";
+            // Ne pas supprimer le captcha pour que l'utilisateur puisse réessayer
+            return;
+        }
 
-                // escape the POST stuff
-                $user_name = $this->db_connection->real_escape_string($_POST['user_name']);
+        // Connexion DB
+        $this->db_connection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+        if ($this->db_connection->connect_errno) {
+            $this->errors[] = "Database connection problem.";
+            return;
+        }
+        $this->db_connection->set_charset("utf8");
 
-                // database query, getting all the info of the selected user (allows login via email address in the
-                // username field)
-                $sql = "SELECT user_name, user_email, user_password_hash
-                        FROM users
-                        WHERE user_name = '" . $user_name . "' OR user_email = '" . $user_name . "';";
-                $result_of_login_check = $this->db_connection->query($sql);
+        $user_name = $this->db_connection->real_escape_string($_POST['user_name']);
+        $sql = "SELECT user_name, user_email, user_password_hash
+                FROM users
+                WHERE user_name = '$user_name'
+                OR user_email = '$user_name'
+                LIMIT 1";
+        $result = $this->db_connection->query($sql);
 
-                // if this user exists
-                if ($result_of_login_check->num_rows == 1) {
+        if ($result && $result->num_rows === 1) {
+            $user = $result->fetch_object();
 
-                    // get result row (as an object)
-                    $result_row = $result_of_login_check->fetch_object();
+            if (password_verify($_POST['user_password'], $user->user_password_hash)) {
+                // Login réussi
+                $_SESSION['user_name'] = $user->user_name;
+                $_SESSION['user_email'] = $user->user_email;
+                $_SESSION['user_login_status'] = 1;
 
-                    // using PHP 5.5's password_verify() function to check if the provided password fits
-                    // the hash of that user's password
-                    if (password_verify($_POST['user_password'], $result_row->user_password_hash)) {
+                // Reset brute-force et captcha
+                $_SESSION['login_attempts'] = 0;
+                $_SESSION['lock_until'] = 0;
+                unset($_SESSION['captcha_solution'], $_SESSION['captcha_question']);
 
-                        // write user data into PHP SESSION (a file on your server)
-                        $_SESSION['user_name'] = $result_row->user_name;
-                        $_SESSION['user_email'] = $result_row->user_email;
-                        $_SESSION['user_login_status'] = 1;
+                $this->messages[] = "Login successful.";
 
-                    } else {
-                        $this->errors[] = "Wrong password. Try again.";
-                    }
-                } else {
-                    $this->errors[] = "This user does not exist.";
-                }
             } else {
-                $this->errors[] = "Database connection problem.";
+                $this->registerFailedAttempt();
+                $this->errors[] = "Incorrect password.";
             }
+
+        } else {
+            $this->registerFailedAttempt();
+            $this->errors[] = "User not found.";
         }
     }
 
-    /**
-     * perform the logout
-     */
+    private function registerFailedAttempt()
+    {
+        $_SESSION['login_attempts']++;
+
+        if ($_SESSION['login_attempts'] >= $this->max_attempts) {
+            $_SESSION['lock_until'] = time() + $this->lock_time;
+            $_SESSION['login_attempts'] = 0;
+            $this->errors[] =
+                "Too many failed login attempts. Your account is now locked for " .
+                $this->lock_time . " seconds.";
+        }
+    }
+
     public function doLogout()
     {
-        // delete the session of the user
         $_SESSION = array();
         session_destroy();
-        // return a little feeedback message
         $this->messages[] = "You have been logged out.";
-
     }
 
-    /**
-     * simply return the current state of the user's login
-     * @return boolean user's login status
-     */
     public function isUserLoggedIn()
     {
-        if (isset($_SESSION['user_login_status']) AND $_SESSION['user_login_status'] == 1) {
-            return true;
-        }
-        // default return
-        return false;
+        return isset($_SESSION['user_login_status']) && $_SESSION['user_login_status'] == 1;
     }
 }

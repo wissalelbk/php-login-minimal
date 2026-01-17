@@ -1,17 +1,29 @@
 <?php
 
 /**
- * Configuration for: Database Connection
- *
- * For more information about constants please @see http://php.net/manual/en/function.define.php
- * If you want to know why we use "define" instead of "const" @see http://stackoverflow.com/q/2447791/1114320
- *
- * DB_HOST: database host, usually it's "127.0.0.1" or "localhost", some servers also need port info
- * DB_NAME: name of the database. please note: database and database table are not the same thing
- * DB_USER: user for your database. the user needs to have rights for SELECT, UPDATE, DELETE and INSERT.
- * DB_PASS: the password of the above user
+ * Configuration de la base de données
+ * Compatible WAMP (Apache + MySQL + PHP)
  */
-define("DB_HOST", "127.0.0.1");
-define("DB_NAME", "login");
-define("DB_USER", "root");
-define("DB_PASS", "mysql");
+
+define("DB_HOST", "127.0.0.1");   // ou localhost
+define("DB_NAME", "login");       // NOM DE LA BASE (celle que tu as créée)
+define("DB_USER", "root");        // utilisateur MySQL (par défaut sur WAMP)
+define("DB_PASS", "");            // mot de passe MySQL (vide sur WAMP)
+define("DB_PORT", "3306");         // port MySQL
+
+/**
+ * Paramètres généraux
+ */
+
+define("COOKIE_RUNTIME", 1209600); // 2 semaines
+define("COOKIE_DOMAIN", "");       // laisser vide en local
+define("COOKIE_PATH", "/");
+
+define("EMAIL_USE_SMTP", false);
+define("EMAIL_SMTP_HOST", "");
+define("EMAIL_SMTP_AUTH", false);
+define("EMAIL_SMTP_USERNAME", "");
+define("EMAIL_SMTP_PASSWORD", "");
+define("EMAIL_SMTP_PORT", 25);
+define("EMAIL_SMTP_ENCRYPTION", "");
+

@@ -1,42 +1,67 @@
 <?php
 
-/**
- * A simple, clean and secure PHP Login Script / MINIMAL VERSION
- *
- * Uses PHP SESSIONS, modern password-hashing and salting and gives the basic functions a proper login system needs.
- *
- * @author Panique
- * @link https://github.com/panique/php-login-minimal/
- * @license http://opensource.org/licenses/MIT MIT License
- */
+session_start(); 
+
+// Initialisation du compteur
+if (!isset($_SESSION['failed_attempts'])) {
+    $_SESSION['failed_attempts'] = 0;
+}
+
+// Vérification du verrouillage
+if ($_SESSION['failed_attempts'] >= 3) {
+    $account_locked = true;
+} else {
+    $account_locked = false;
+}
 
 // checking for minimum PHP version
 if (version_compare(PHP_VERSION, '5.3.7', '<')) {
     exit("Sorry, Simple PHP Login does not run on a PHP version smaller than 5.3.7 !");
 } else if (version_compare(PHP_VERSION, '5.5.0', '<')) {
-    // if you are using PHP 5.3 or PHP 5.4 you have to include the password_api_compatibility_library.php
-    // (this library adds the PHP 5.5 password hashing functions to older versions of PHP)
     require_once("libraries/password_compatibility_library.php");
 }
 
-// include the configs / constants for the database connection
+// include DB config
 require_once("config/db.php");
 
-// load the login class
+// load login class
 require_once("classes/Login.php");
+// Génération CAPTCHA simple
+if (!isset($_SESSION['captcha_solution'])) {
+    $a = rand(1, 9);
+    $b = rand(1, 9);
+    $_SESSION['captcha_solution'] = $a + $b;
+    $_SESSION['captcha_question'] = "$a + $b = ?";
+}
 
-// create a login object. when this object is created, it will do all login/logout stuff automatically
-// so this single line handles the entire login process. in consequence, you can simply ...
+// create login object
 $login = new Login();
+?>
 
-// ... ask if we are logged in here:
-if ($login->isUserLoggedIn() == true) {
-    // the user is logged in. you can do whatever you want here.
-    // for demonstration purposes, we simply show the "you are logged in" view.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Brute Force Login Demo</title>
+    <link rel="stylesheet" href="css.css">
+</head>
+<body>
+
+<?php
+// Si le compte est bloqué
+if ($account_locked) {
+    echo "<div class='login-container'>
+            <h1>Login</h1>
+            <div class='error'>Account temporarily locked after 3 failed attempts</div>
+          </div>";
+}
+// Sinon comportement normal
+else if ($login->isUserLoggedIn() == true) {
     include("views/logged_in.php");
-
 } else {
-    // the user is not logged in. you can do whatever you want here.
-    // for demonstration purposes, we simply show the "you are not logged in" view.
     include("views/not_logged_in.php");
 }
+?>
+
+</body>
+</html>

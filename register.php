@@ -1,33 +1,40 @@
 <?php
-
-/**
- * A simple, clean and secure PHP Login Script / MINIMAL VERSION
- *
- * Uses PHP SESSIONS, modern password-hashing and salting and gives the basic functions a proper login system needs.
- *
- * @author Panique
- * @link https://github.com/panique/php-login-minimal/
- * @license http://opensource.org/licenses/MIT MIT License
- */
-
-// checking for minimum PHP version
+// Vérification version PHP
 if (version_compare(PHP_VERSION, '5.3.7', '<')) {
-    exit("Sorry, Simple PHP Login does not run on a PHP version smaller than 5.3.7 !");
+    exit("Sorry, this project does not run on PHP < 5.3.7");
 } else if (version_compare(PHP_VERSION, '5.5.0', '<')) {
-    // if you are using PHP 5.3 or PHP 5.4 you have to include the password_api_compatibility_library.php
-    // (this library adds the PHP 5.5 password hashing functions to older versions of PHP)
     require_once("libraries/password_compatibility_library.php");
 }
 
-// include the configs / constants for the database connection
+// Configuration base de données
 require_once("config/db.php");
 
-// load the registration class
+// Logique d'inscription
 require_once("classes/Registration.php");
 
-// create the registration object. when this object is created, it will do all registration stuff automatically
-// so this single line handles the entire registration process.
+// Création de l'objet registration (gère automatiquement le POST)
 $registration = new Registration();
+?>
 
-// show the register view (with the registration form, and messages/errors)
-include("views/register.php");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create Account</title>
+
+    <!-- CSS GLOBAL -->
+    <link rel="stylesheet" href="css.css"> <!-- fichier css à la racine -->
+</head>
+<body>
+
+    <div class="login-container">
+        <h1>Create Account</h1>
+
+        <?php
+        // Inclure le formulaire + messages
+        include("views/register.php");
+        ?>
+    </div>
+
+</body>
+</html>
